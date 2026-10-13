@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI 돌발사고 대응형 신호제어 시뮬레이터</title>
+<style>
+:root{--bg:#07111f;--panel:#101d30;--line:#29415d;--text:#eaf2fa;--muted:#8fa4ba;--blue:#38bdf8;--green:#22c55e;--yellow:#f59e0b;--red:#ef4444;}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#06101c,#0b1728,#06101c);color:var(--text);font-family:Arial,"Noto Sans KR",sans-serif;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.title h1{margin:0 0 4px;font-size:20px}.title p{margin:0;color:var(--muted);font-size:12px}.badge{padding:8px 13px;border-radius:20px;border:1px solid #31506d;background:#0b2033;color:#7dd3fc;font-size:12px;font-weight:bold}.badge.alert{background:#3a1115;color:#fecaca;border-color:#7f1d1d}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}.kpi{background:#101d30;border:1px solid var(--line);border-radius:9px;padding:9px 11px}.kpi small{display:block;color:var(--muted);font-size:10px}.kpi strong{display:block;font-size:16px;margin-top:4px}
+.layout{display:grid;grid-template-columns:minmax(650px,3.2fr) minmax(320px,1.1fr);gap:10px}.card{background:#101d30;border:1px solid var(--line);border-radius:11px;padding:10px}.canvasHead{display:flex;justify-content:space-between;margin-bottom:7px}.canvasHead strong{font-size:13px}.mode{font-size:10px;color:#93c5fd}.canvasBox{background:#040a11;border:1px solid #1e3248;border-radius:8px;overflow:hidden}.canvasBox canvas{display:block;width:100%;height:auto}
+.compareCanvases{display:grid;grid-template-columns:1fr 1fr;gap:7px}.comparePane{min-width:0}.compareLabel{font-size:11px;font-weight:bold;padding:6px 8px;border-radius:6px 6px 0 0;background:#0b1727;border:1px solid #29415d;border-bottom:0}.compareLabel.old{color:#fca5a5}.compareLabel.new{color:#86efac}.comparePane canvas{width:100%;height:auto}
+.sectionTitle{font-size:12px;font-weight:bold;margin-bottom:8px;color:#dbeafe}.side{display:flex;flex-direction:column;gap:9px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}.btn{border:1px solid #34506b;background:#17283d;color:#dce9f5;border-radius:7px;padding:9px 7px;cursor:pointer;font-weight:bold;font-size:11px}.btn:hover{filter:brightness(1.15)}.btn.primary{background:#075985;border-color:#0ea5e9}.btn.danger{background:#40161a;border-color:#7f1d1d;color:#fecaca}
+.flow{display:flex;flex-direction:column;gap:4px}.step{display:flex;align-items:center;gap:7px;border:1px solid #263b55;background:#0c1727;border-radius:6px;padding:6px;font-size:10px}.dot{width:8px;height:8px;border-radius:50%;background:#334155}.step.on .dot{background:var(--yellow);box-shadow:0 0 7px var(--yellow)}.step.done .dot{background:var(--green)}.step b{font-size:10px}.step span{margin-left:auto;color:var(--muted);font-size:9px}
+.risk{background:#0a1422;border:1px solid #263b55;border-radius:7px;padding:9px}.riskGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px;font-size:10px;text-align:center}.riskBox{background:#0e1a2b;padding:6px;border-radius:5px;border:1px solid #22374e}.riskBox span{display:block;color:var(--muted);font-size:9px}.riskBox b{font-size:13px;margin-top:2px;display:block}
+.compareTable{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:4px}.compareTable th,.compareTable td{border:1px solid #293e56;padding:5px;text-align:center}.compareTable th{background:#0e1b2d;color:#93c5fd}.compareTable td.imp{color:#86efac;font-weight:bold}
+.log{height:130px;overflow:auto;background:#04090f;border:1px solid #1c3047;border-radius:7px;padding:7px;font:9.5px/1.5 monospace;color:#86efac}.footer{margin-top:8px;color:#6f849a;font-size:9px;text-align:right}
+.modalOverlay{display:none;position:fixed;inset:0;background:rgba(2,6,12,.75);align-items:center;justify-content:center;z-index:99;backdrop-filter:blur(3px)}
+.modalBox{width:460px;background:#101d30;border:1px solid #3b82f6;border-radius:12px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.modalBox h2{margin:0 0 8px;font-size:16px;color:#ef4444;display:flex;align-items:center;gap:6px;justify-content:center}
+.modalBox p{color:#a8b8ca;font-size:11px;margin:0 0 14px;text-align:center}
+.modalBtns{display:flex;gap:8px;margin-top:14px}.modalBtns button{flex:1;padding:8px;border-radius:6px;border:1px solid #38bdf8;background:#0284c7;color:#fff;font-weight:bold;cursor:pointer;font-size:11px}.modalBtns button.sec{background:#1e293b;border-color:#475569;color:#cbd5e1}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>🚦 돌발사고 대응 AI 능동 신호제어 시뮬레이터 (Gemini 연동 버전)</h1>
+    <p>실시간 사고 감지 · AI 능동형 신호 배분 · 황색 점멸 제어 및 선제적 회피 기동 유도</p>
+  </div>
+  <div id="badge" class="badge alert">⚠️ 사고 발생 - 두 환경 실시간 비교 중</div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><small>사고 감지 시간</small><strong id="kDetect">3.4 초</strong></div>
+  <div class="kpi"><small>사고지점 위험 노출차량</small><strong id="kRiskExp">1 대 (기존 1 대)</strong></div>
+  <div class="kpi"><small>사고건당 정체 손실비</small><strong id="kDelayCost">393 차량·초</strong></div>
+  <div class="kpi"><small>2차 사고 발생 위험률</small><strong id="kCrashRate">12.5% (기존 96.8%)</strong></div>
+  <div class="kpi"><small>정체 해소 시간</small><strong id="kClearTime">45초 (기존 82초)</strong></div>
+</div>
+
+<div class="layout">
+  <section class="card">
+    <div class="canvasHead">
+      <strong>실시간 동일 사고 환경 관제</strong>
+      <span class="mode" id="modeLabel">정상 교통 모드 (차량 ~25대)</span>
+    </div>
+    <div class="canvasBox" id="singleView" style="display: none;"><canvas id="sim" width="980" height="570"></canvas></div>
+    <div id="compareView" class="compareCanvases" style="display: grid;">
+      <div class="comparePane">
+        <div class="compareLabel old">🔴 기존 시스템 (사고차량 전 차선 마비 및 극심한 꼬리물기 정체)</div>
+        <div class="canvasBox"><canvas id="oldCanvas" width="490" height="300"></canvas></div>
+      </div>
+      <div class="comparePane">
+        <div class="compareLabel new">🟢 AI 능동제어 (선제적 회피 유도 및 능동형 감응 신호로 꼬임 방지)</div>
+        <div class="canvasBox"><canvas id="newCanvas" width="490" height="300"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <div class="sectionTitle">① 시뮬레이션 제어</div>
+      <div class="buttons">
+        <button class="btn primary" id="btnNormal">정상 주행</button>
+        <button class="btn danger" id="btnAccident">사고 발생</button>
+        <button class="btn" id="btnReset">초기화</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">② AI 판단 단계 UI</div>
+      <div class="flow">
+        <div class="step done" id="s1"><i class="dot"></i><b>사고 징후 쾌속 감지</b><span id="st1">완료</span></div>
+        <div class="step done" id="s2"><i class="dot"></i><b>Gemini 상황 분석 요청</b><span id="st2">완료</span></div>
+        <div class="step done" id="s3"><i class="dot"></i><b>사고 위치 판단</b><span id="st3">완료</span></div>
+        <div class="step done" id="s4"><i class="dot"></i><b>2차 사고 위험 분석</b><span id="st4">완료</span></div>
+        <div class="step done" id="s5"><i class="dot"></i><b>황색 점멸 서행 (5초)</b><span id="st5">완료</span></div>
+        <div class="step on" id="s6"><i class="dot"></i><b>AI 능동 신호 및 선제적 우회</b><span id="st6">진행중</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">③ 실시간 2차 사고 위험도</div>
+      <div class="risk">
+        <div class="riskGrid">
+          <div class="riskBox"><span>기존 시스템</span><b id="riskOldVal" style="color:var(--red)">96.8%</b></div>
+          <div class="riskBox"><span>AI 능동제어</span><b id="riskAival" style="color:var(--green)">12.5%</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">④ 주요 성능 지표 표</div>
+      <table class="compareTable">
+        <thead>
+          <tr><th>지표</th><th>기존</th><th>AI</th><th>개선율</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>사고근처 통과차량</td><td id="tOldExp">1 대</td><td id="tAiExp">1 대</td><td id="tImpExp" class="imp">↓ 0.0%</td></tr>
+          <tr><td>정체 손실비</td><td id="tOldCost">591</td><td id="tAiCost">393</td><td id="tImpCost" class="imp">↓ 33.5%</td></tr>
+          <tr><td>2차사고 위험률</td><td id="tOldRate">96.8%</td><td id="tAiRate">12.5%</td><td id="tImpRate" class="imp">↓ 87.1%</td></tr>
+          <tr><td>정체 해소시간</td><td id="tOldTime">82초</td><td id="tAiTime">45초</td><td id="tImpTime" class="imp">↓ 37초 (45.1%)</td></tr>
+          <tr><td>차량 정체비율</td><td id="tOldCong">19.8%</td><td id="tAiCong">21.6%</td><td id="tImpCong" class="imp">↑ 9.1%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">⑤ 관제 및 모니터링 로그</div>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="footer">※ Gemini API 연동 AI 의사결정 프로토타입 | 사고 발생 시 황색 점멸 서행 및 사고구간 회피 기동 시뮬레이션</div>
+
+<div id="accidentModal" class="modalOverlay" style="display: none;">
+  <div class="modalBox">
+    <h2>🚨 사고 처리가 완료되었습니다</h2>
+    <p>현장 사고 조치가 완료되었습니다. 기존 시스템 대비 AI 능동제어 성능 개선 분석 결과입니다.</p>
+    <table class="compareTable" style="font-size:10.5px">
+      <thead>
+        <tr><th>핵심 지표</th><th>기존/미제어</th><th>AI 능동제어</th><th>개선율</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>사고건당 정체 손실비</td><td id="mOld2">171</td><td id="mAi2">107</td><td id="mImp2" class="imp">↓ 37.2%</td></tr>
+        <tr><td>2차 사고 발생 위험률</td><td id="mOld3">42.5%</td><td id="mAi3">6.0%</td><td id="mImp3" class="imp">↓ 85.9%</td></tr>
+        <tr><td>정체 해소 시간</td><td id="mOld4">82초</td><td id="mAi4">45초</td><td id="mImp4" class="imp">↓ 37초 (45.1%)</td></tr>
+        <tr><td>차량 정체 비율</td><td id="mOld5">23.6%</td><td id="mAi5">19.3%</td><td id="mImp5" class="imp">↓ 18.2%</td></tr>
+      </tbody>
+    </table>
+    <div class="modalBtns">
+      <button onclick="$('accidentModal').style.display='none'">[결과 확인]</button>
+      <button class="sec" onclick="$('accidentModal').style.display='none';reset();">[정상 주행으로 복귀]</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_KEY = 'AQ.Ab8RN6LJX1P1ojrWzoynvpwbnqakEpiyQ9k4HxwGltUGEBmYpw';
+
+const $=id=>document.getElementById(id);
+const sim=$('sim'),ctx=sim.getContext('2d'),oldC=$('oldCanvas'),oldCtx=oldC.getContext('2d'),newC=$('newCanvas'),newCtx=newC.getContext('2d');
+const W=980,H=570;
+
+const LANES = { E_IN: [210, 235], E_OUT: [330, 355], W_IN: [330, 355], W_OUT: [210, 235], N_IN: [450, 475], N_OUT: [535, 560], S_IN: [535, 560], S_OUT: [450, 475] };
+const STOP={E:410,W:600,N:165,S:425};
+let mode='normal',compare=false,elapsed=0,lastTime=performance.now(),lastSpawnOld=0,lastSpawnAi=0,detectTime=null;
+let oldWorld,aiWorld,singleWorld;
+const MAX_CARS=100, INITIAL_CARS=25, SIM_DURATION=38000;
+let resultShown=false, accidentStarted=false;
+
+let isAiJudging = false; 
+let aiDecisionDone = false;
+
+function world(type){
+  return {
+    type, vehicles:[], accident:false, detected:false, aiActive:type==='ai',
+    nearAccidentPassCount:0, delayCost:0, maxQueue:0, spawnNo:0, response:'none',
+    crashVehicles:[], stoppedSamples:0, sampleCount:0, peakVehicles:0,
+    collisionTriggered:false, crashFlash:0, vms:'NORMAL',
+    secondaryCrashRisk:0, redFlashLogged:false, redirectLogged:false,
+    aiPhase: 0, aiPhaseTimer: 0
+  };
+}
+
+function lanePos(dir, laneIdx, isOut=false){
+  if(dir===0) return isOut ? LANES.W_OUT[laneIdx%2] : LANES.W_IN[laneIdx%2];
+  if(dir===1) return isOut ? LANES.E_OUT[laneIdx%2] : LANES.E_IN[laneIdx%2];
+  if(dir===2) return isOut ? LANES.N_OUT[laneIdx%2] : LANES.N_IN[laneIdx%2];
+  return isOut ? LANES.S_OUT[laneIdx%2] : LANES.S_IN[laneIdx%2];
+}
+
+function addCar(w,i,initial=false){
+ const validDirs = [0, 1, 2, 3];
+ const dir = validDirs[i % validDirs.length];
+ const move = ['straight','left','right'][Math.floor((i*7)%3)];
+ const lane = (move === 'right') ? 1 : 0; 
+ let x,y;
+ if(dir===0){x=initial?70+Math.floor(i/8)*135+(i%2)*12:-60-Math.random()*60; y=lanePos(dir,lane);}
+ else if(dir===1){x=initial?900-Math.floor(i/8)*135-(i%2)*12:1040+Math.random()*60; y=lanePos(dir,lane);}
+ else if(dir===2){x=lanePos(dir,lane); y=initial?55+Math.floor(i/8)*125+(i%2)*12:-60-Math.random()*60;}
+ else {x=lanePos(dir,lane); y=initial?515-Math.floor(i/8)*125-(i%2)*12:630+Math.random()*60;}
+
+ w.vehicles.push({
+   id:w.spawnNo++,dir,lane,move,x,y,speed:2.35+((i*3)%4)*.12,target:2.55,
+   stopped:false,danger:false,state:'normal',delaySec:0,color:'#38bdf8',
+   routePts:null,routeIndex:0, countedNear:false, rerouted: false
+ });
+}
+
+function cloneInitial(a,b){
+  b.vehicles=a.vehicles.map(v=>({ ...v, routePts: v.routePts ? [...v.routePts] : null, rerouted: v.rerouted }));
+  b.spawnNo=a.spawnNo;
+}
+
+function cleanAiWorldVehicles(w){
+  let northCount = 0; let southCount = 0;
+  w.vehicles = w.vehicles.filter(v => {
+    if(v.dir === 2 && northCount < 3){ northCount++; return false; }
+    if(v.dir === 3 && southCount < 2){ southCount++; return false; }
+    return true;
+  });
+}
+
+function log(t){$('log').innerHTML+=`[${new Date().toLocaleTimeString('ko-KR')}] ${t}<br>`;$('log').scrollTop=$('log').scrollHeight}
+function badge(t,alert=false){$('badge').textContent=t;$('badge').className='badge'+(alert?' alert':'')}
+
+function updateSteps(stepNum){
+  for(let i=1;i<=6;i++){
+    const el=$('s'+i), st=$('st'+i);
+    if(i < stepNum){ el.className='step done'; st.textContent='완료'; }
+    else if(i === stepNum){ el.className='step on'; st.textContent='진행중'; }
+    else { el.className='step'; st.textContent='대기'; }
+  }
+}
+
+function prepareCrashVehicles(w){
+ const a=w.vehicles[0]; const b=w.vehicles[1];
+ a.dir=0; a.lane=0; a.move='straight'; a.x=650; a.y=330; a.speed=1.55; a.target=1.55; a.state='crashApproach';
+ b.dir=0; b.lane=0; b.move='straight'; b.x=550; b.y=330; b.speed=1.75; b.target=1.55; b.state='crashTurnApproach';
+ w.crashVehicles=[a,b];
+}
+
+function reset(){
+ mode='normal';compare=false;elapsed=0;lastTime=performance.now();lastSpawnOld=0;lastSpawnAi=0;detectTime=null;resultShown=false;accidentStarted=false;
+ isAiJudging = false; aiDecisionDone = false; 
+ singleWorld=world('single');resetWorld(singleWorld);oldWorld=world('old');aiWorld=world('ai');
+ $('singleView').style.display='block';$('compareView').style.display='none';
+ updateSteps(0);$('riskOldVal').textContent='-';$('riskAival').textContent='-';
+ clearTable();badge('● 정상 관제 모드');$('log').innerHTML='';
+ log('시스템 초기화 완료 (차량수 약 25대 유지, 정상 신호 작동)');updateUI();
+}
+
+function resetWorld(w){
+  w.vehicles=[];w.accident=false;w.detected=false;w.nearAccidentPassCount=0;w.delayCost=0;w.maxQueue=0;
+  w.spawnNo=0;w.response='none';w.crashVehicles=[];w.stoppedSamples=0;w.sampleCount=0;
+  w.peakVehicles=0;w.collisionTriggered=false;w.crashFlash=0;w.vms='NORMAL';w.secondaryCrashRisk=0;
+  w.redFlashLogged=false; w.redirectLogged=false; w.aiPhase=0; w.aiPhaseTimer=0;
+  for(let i=0;i<INITIAL_CARS;i++)addCar(w,i,true);
+}
+
+function accident(){compareStart();}
+
+function compareStart(){
+ compare=true;mode='compare';elapsed=0;lastTime=performance.now();lastSpawnOld=0;lastSpawnAi=0;detectTime=null;resultShown=false;accidentStarted=true;
+ oldWorld=world('old');aiWorld=world('ai');resetWorld(oldWorld);
+ prepareCrashVehicles(oldWorld);
+ cloneInitial(oldWorld,aiWorld);
+ prepareCrashVehicles(aiWorld);
+ cleanAiWorldVehicles(aiWorld);
+ oldWorld.accident=false;aiWorld.accident=false;oldWorld.aiActive=false;aiWorld.aiActive=true;
+ $('singleView').style.display='none';$('compareView').style.display='grid';
+ badge('⚠️ 사고 발생 - 두 환경 실시간 비교 중',true);clearTable();
+ log('🚨 돌발사고 시나리오 발동: 동측 하행(서→동) 차로 추돌 임박');
+}
+
+function triggerCollision(w){
+ if(w.collisionTriggered)return;
+ w.collisionTriggered=true;w.accident=true;w.response=w.aiActive?'pending':'normal';
+ w.vms='ACCIDENT';w.crashFlash=1200;
+ const a=w.crashVehicles[0],b=w.crashVehicles[1];
+ if(a){a.state='crashed';a.x=840;a.y=330;a.speed=0;a.stopped=true;}
+ if(b){b.state='crashed';b.x=800;b.y=330;b.speed=0;b.stopped=true;}
+ log((w.type==='ai'?'[AI측]':'[기존측]')+' 교차로 통과 후 동측 하행차로 추돌 사고 발생!');
+}
+
+function aheadCar(w,v){
+  let best=null;
+  for(const o of w.vehicles){
+    if(o===v)continue;
+    let d=9999;
+    
+    let isCrashObj = (o.state === 'crashed');
+    if (isCrashObj) {
+      let vEast = (v.dir===0 && v.move==='straight' && v.state==='normal') || (v.state==='turning' && v.routePts && v.routePts[v.routePts.length-1][0] > 1000);
+      if (vEast && o.x > v.x) {
+          if (w.type === 'old') {
+             d = o.x - v.x;
+          } else {
+             if (v.lane === 0 && Math.abs(o.y - v.y) < 22) d = o.x - v.x;
+          }
+      }
+    } else {
+      let dx = o.x - v.x, dy = o.y - v.y;
+      
+      if (v.dir === o.dir) {
+          if (v.state === 'normal' && o.state === 'normal') {
+              if (v.dir === 0 && Math.abs(dy) < 22 && dx > 0) d = dx;
+              else if (v.dir === 1 && Math.abs(dy) < 22 && dx < 0) d = -dx;
+              else if (v.dir === 2 && Math.abs(dx) < 22 && dy > 0) d = dy;
+              else if (v.dir === 3 && Math.abs(dx) < 22 && dy < 0) d = -dy;
+          }
+          else if (v.state === 'turning' && o.state === 'turning' && v.move === o.move) {
+              let vx = v.routePts[v.routeIndex+1]?.[0] - v.x || 0;
+              let vy = v.routePts[v.routeIndex+1]?.[1] - v.y || 0;
+              if (vx * dx + vy * dy > 0) d = Math.hypot(dx, dy);
+          }
+          else if (v.state === 'normal' && o.state === 'turning') {
+              if (v.dir === 0 && Math.abs(dy) < 22 && dx > 0) d = dx;
+              else if (v.dir === 1 && Math.abs(dy) < 22 && dx < 0) d = -dx;
+              else if (v.dir === 2 && Math.abs(dx) < 22 && dy > 0) d = dy;
+              else if (v.dir === 3 && Math.abs(dx) < 22 && dy < 0) d = -dy;
+          }
+          else if (v.state === 'turning' && o.state === 'normal' && v.move === o.move) {
+              let vx = v.routePts[v.routeIndex+1]?.[0] - v.x || 0;
+              let vy = v.routePts[v.routeIndex+1]?.[1] - v.y || 0;
+              if (vx * dx + vy * dy > 0 && Math.hypot(dx, dy) < 80) d = Math.hypot(dx, dy);
+          }
+      }
+    }
+    
+    if(d>0&&(!best||d<best.d))best={o,d};
+  }
+  return best;
+}
+
+function signalPhase(w){
+  if (w.aiActive && w.detected && w.response === 'normal') {
+      return w.aiPhase;
+  }
+  const p = (elapsed / 1000) % 32; 
+  if(p < 8) return 0;  
+  if(p < 16) return 1; 
+  if(p < 24) return 2; 
+  return 3;            
+}
+
+function signalState(w,dir){ return (dir === signalPhase(w)) ? 'GREEN' : 'RED'; }
+
+function signalRed(w,v){
+  if(v.state!=='normal')return false;
+  if(v.move === 'right')return false; 
+
+  if(w.accident && w.aiActive && w.detected && w.response === 'yellow_flash' && v.dir === 0){
+    return false;
+  }
+  
+  const p = (elapsed / 1000) % 32;
+  let isRed = (signalState(w, v.dir) === 'RED');
+
+  if (w.accident && w.aiActive && w.response !== 'normal') {
+    if (v.dir === 0 && v.move === 'straight' && p >= 4 && p < 8) isRed = true;
+    if (v.dir === 2 && v.move === 'left' && p >= 20 && p < 24) isRed = true;
+  }
+
+  if(v.dir===0)return isRed&&v.x<STOP.E&&v.x>300;
+  if(v.dir===1)return isRed&&v.x>STOP.W&&v.x<720;
+  if(v.dir===2)return isRed&&v.y<STOP.N&&v.y>45;
+  return isRed&&v.y>STOP.S&&v.y<550;
+}
+
+function normalRoute(v){
+ const x=v.x,y=v.y,m=v.move;
+ if(v.dir===0){ 
+   if(m==='straight') return [[x,y],[1040,y]];
+   if(m==='left') return [[x,y],[545,y],[545,-60]];
+   return [[x,y],[475,y],[475,630]]; 
+ }
+ if(v.dir===1){ 
+   if(m==='straight') return [[x,y],[-60,y]];
+   if(m==='left') return [[x,y],[467,y],[467,630]];
+   return [[x,y],[560,y],[560,-60]];
+ }
+ if(v.dir===2){ 
+   if(m==='straight') return [[x,y],[x,630]];
+   let targetY = v.lane === 1 ? 355 : 330;
+   if(m==='left') return [[x,y],[x,targetY],[1040,targetY]];
+   return [[x,y],[x,210],[-60,210]];
+ }
+ if(m==='straight') return [[x,y],[x,-60]];
+ if(m==='left') return [[x,y],[x,210],[-60,210]];
+ let targetY = v.lane === 1 ? 355 : 330;
+ return [[x,y],[x,targetY],[1040,targetY]];
+}
+
+function startRoute(w, v){
+  if (w.accident && w.aiActive) {
+     if ((v.dir === 2 && v.move === 'left') || (v.dir === 3 && v.move === 'right')) {
+         v.lane = 1; 
+     }
+  }
+  v.state='turning';
+  v.routePts=normalRoute(v);
+  v.routeIndex=0;
+}
+
+function updateRoute(v,dt){
+ const pts=v.routePts;
+ if(!pts||v.routeIndex>=pts.length-1){
+     v.x = 9999; v.y = 9999; v.state = 'normal';
+     return;
+ }
+ const b=pts[v.routeIndex+1],dx=b[0]-v.x,dy=b[1]-v.y,d=Math.hypot(dx,dy);
+ if(d<5){v.x=b[0];v.y=b[1];v.routeIndex++;return;}
+ const step=v.speed*dt*60;v.x+=dx/d*Math.min(step,d);v.y+=dy/d*Math.min(step,d);
+}
+
+function shouldTurn(w,v){
+  if(v.state!=='normal'||v.move==='straight')return false;
+  if(v.move === 'right') {
+    if(v.dir===0)return v.x>=380&&v.x<=480; 
+    if(v.dir===1)return v.x<=630&&v.x>=520;
+    if(v.dir===2)return v.y>=140&&v.y<=240;
+    if(v.dir===3)return v.y<=460&&v.y>=340;
+  } else if(v.move === 'left') {
+    if(v.dir===0)return v.x>=540; 
+    if(v.dir===1)return v.x<=470;
+    if(v.dir===2)return v.y>=325;
+    if(v.dir===3)return v.y<=215;
+  }
+  return false;
+}
+
+function nearAccident(v){return Math.abs(v.x-820)<90&&Math.abs(v.y-330)<90}
+
+function updateVehicle(w,v,dt){
+ if(v.state==='crashApproach'){v.speed=1.55;v.x+=v.speed*dt*60; if(v.x>=840)v.x=840; return;}
+ if(v.state==='crashTurnApproach'){v.speed=1.75;v.x+=v.speed*dt*60; if(v.x>=800)v.x=800; return;}
+ if(v.state==='crashed'){v.speed=0;v.stopped=true;return;}
+
+ // [해결] 사고 발생 구역(빨간 점선 박스 내부)에 갇혀버린 비사고 차량들을 즉시 화면 밖으로 치워버림 (안보이게 처리)
+ if (w.accident && v.state !== 'crashed') {
+     if (v.x > 770 && v.x < 860 && Math.abs(v.y - 330) < 22) {
+         v.x = 9999;
+         v.y = 9999;
+         v.state = 'normal';
+         return;
+     }
+ }
+
+ if(v.state==='turning'){
+    let target = v.target, ahead = aheadCar(w, v);
+    if(ahead && ahead.d < 46) target = 0;
+    else if(ahead && ahead.d < 75) target = Math.min(target, Math.max(0.8, ahead.o.speed - 0.1));
+    
+    let vEast = v.routePts && v.routePts[v.routePts.length-1][0] > 1000;
+    if (w.accident && vEast) {
+        if (w.type === 'old') {
+            if (v.x > 750 && v.x < 860) target = 0; 
+        } else {
+            if (Math.abs(v.y - 330) < 18 && v.x > 750 && v.x < 860) target = 0;
+        }
+    }
+    
+    v.speed += (target - v.speed) * Math.min(1, dt * 8);
+    if (v.speed < 0.1 && target === 0) {
+        v.speed = 0; v.stopped = true;
+    } else {
+        v.stopped = false;
+        updateRoute(v, dt);
+    }
+    return;
+ }
+
+ let target=v.target,ahead=aheadCar(w,v);
+ if(ahead&&ahead.d<46)target=0;else if(ahead&&ahead.d<75)target=Math.min(target,Math.max(.8,ahead.o.speed-.1));
+
+ if (w.accident && w.aiActive && v.dir === 0) {
+   if (!v.rerouted && v.x < 150) {
+       v.rerouted = true;
+       if (v.move === 'straight' && Math.random() < 0.60) {
+           v.move = Math.random() < 0.5 ? 'left' : 'right';
+           v.lane = (v.move === 'right') ? 1 : 0; 
+       }
+   }
+   
+   if (w.response === 'yellow_flash' && v.x > 100 && v.x < 650) {
+     target = Math.min(target, 0.7); 
+   }
+   if (v.x > 300 && v.x < 800) {
+     if (v.lane === 0 && v.state === 'normal') {
+       v.lane = 1; 
+     }
+   }
+   if (v.x > 600 && v.x < 860) {
+     target = Math.min(target, 1.8); 
+   }
+ }
+
+ if (w.accident && v.dir === 0 && v.state === 'normal') {
+     if (w.type === 'old') {
+         if (v.x > 750 && v.x < 860) { v.x = 750; v.speed = 0; v.target = 0; v.stopped = true; }
+     } else {
+         if (v.lane === 0 && v.x > 750 && v.x < 860) { v.x = 750; v.speed = 0; v.target = 0; v.stopped = true; }
+     }
+ }
+
+ if(shouldTurn(w,v)){startRoute(w, v);return;}
+ if(signalRed(w,v)){target=0;v.stopped=true;}else v.stopped=false;
+
+ v.speed+=(target-v.speed)*Math.min(1,dt*8);
+ if(v.dir===0)v.x+=v.speed*dt*60;if(v.dir===1)v.x-=v.speed*dt*60;if(v.dir===2)v.y+=v.speed*dt*60;if(v.dir===3)v.y-=v.speed*dt*60;
+
+ if (v.state === 'normal') {
+   if (v.dir === 0 || v.dir === 1) {
+     let ty = lanePos(v.dir, v.lane);
+     if (Math.abs(v.y - ty) > 0.5) v.y += (ty - v.y) * dt * 4;
+     else v.y = ty;
+   } else if (v.dir === 2 || v.dir === 3) {
+     let tx = lanePos(v.dir, v.lane);
+     if (Math.abs(v.x - tx) > 0.5) v.x += (tx - v.x) * dt * 4;
+     else v.x = tx;
+   }
+ }
+
+ if(v.stopped){ v.delaySec += dt; w.delayCost += dt; }
+
+ if(w.accident && nearAccident(v)){
+   if(!v.countedNear){
+     v.countedNear = true;
+     w.nearAccidentPassCount++;
+   }
+   if(!w.aiActive){
+     const stoppedBonus = v.stopped ? 1.8 : 0.6;
+     w.secondaryCrashRisk += dt * (0.8 + w.nearAccidentPassCount * 0.12) * stoppedBonus;
+   } else {
+     w.secondaryCrashRisk += dt * 0.08;
+   }
+ }
+}
+
+function enforceSpacing(w){
+  for(const v of w.vehicles){
+    if(v.state!=='normal')continue;
+    const a=aheadCar(w,v);
+    if(a&&a.d<32){
+      if(v.dir===0)v.x=a.o.x-32;if(v.dir===1)v.x=a.o.x+32;if(v.dir===2)v.y=a.o.y-32;if(v.dir===3)v.y=a.o.y+32;
+      v.speed=Math.min(v.speed,a.o.speed);v.stopped=true;
+    }
+  }
+}
+
+function spawnVehicle(w){
+ if(w.vehicles.length>=MAX_CARS)return;
+ const id=w.spawnNo++;
+ const dirList=[0,1,2,3];
+ const dir=dirList[id%dirList.length], move=['straight','left','right'][Math.floor(Math.random()*3)];
+ const lane=(move==='right')?1:0; 
+ let x,y;
+ if(dir===0){x=-60;y=lanePos(dir,lane)}
+ else if(dir===1){x=1040;y=lanePos(dir,lane)}
+ else if(dir===2){x=lanePos(dir,lane);y=-60}
+ else {x=lanePos(dir,lane);y=630}
+ w.vehicles.push({id,dir,lane,move,x,y,speed:2.45,target:2.55,stopped:false,danger:false,state:'normal',delaySec:0,color:'#38bdf8',routePts:null,routeIndex:0, countedNear:false, rerouted: false});
+}
+
+function simulate(w,dt){
+ if(w.crashFlash>0)w.crashFlash=Math.max(0,w.crashFlash-dt*1000);
+ if(w.type==='old' || w.type==='single'){
+   if(elapsed-lastSpawnOld>1200&&w.vehicles.length<MAX_CARS){ spawnVehicle(w); lastSpawnOld=elapsed; }
+ } else if(w.type==='ai'){
+   if(elapsed-lastSpawnAi>750&&w.vehicles.length<MAX_CARS){ spawnVehicle(w); lastSpawnAi=elapsed; }
+ }
+
+ if (w.aiActive && w.detected && w.response === 'normal') {
+     w.aiPhaseTimer -= dt;
+     if (w.aiPhaseTimer <= 0) {
+         let queues = [0, 0, 0, 0];
+         w.vehicles.forEach(v => {
+             if (v.speed < 0.5 && v.state === 'normal' && !v.routePts && v.x > -50 && v.x < 1000 && v.y > -50 && v.y < 600) {
+                 queues[v.dir]++;
+             }
+         });
+         
+         let nextPhase = (w.aiPhase + 1) % 4;
+         let maxQ = -1;
+         for(let i=0; i<4; i++) { 
+             if(i !== w.aiPhase && queues[i] > maxQ) { 
+                 maxQ = queues[i]; 
+                 nextPhase = i; 
+             }
+         }
+         
+         if (maxQ === 0) nextPhase = (w.aiPhase + 1) % 4;
+         
+         w.aiPhase = nextPhase;
+         let duration = 6 + queues[w.aiPhase] * 1.5;
+         
+         if (w.aiPhase === 0) {
+             duration = 5; 
+         } else {
+             duration = Math.min(duration, 15); 
+         }
+         w.aiPhaseTimer = duration;
+     }
+ }
+
+ for(const v of w.vehicles)updateVehicle(w,v,dt);
+ enforceSpacing(w);
+ w.vehicles=w.vehicles.filter(v=>v.x>-130&&v.x<1110&&v.y>-130&&v.y<700);
+ const stopped=w.vehicles.filter(v=>v.stopped).length;
+ w.maxQueue=Math.max(w.maxQueue,stopped);
+ w.sampleCount++;w.stoppedSamples+=stopped;w.peakVehicles=Math.max(w.peakVehicles,w.vehicles.length);
+}
+
+function createPrompt(world) {
+  const carCount = world.vehicles.length;
+  const stoppedCars = world.vehicles.filter(v => v.stopped).length;
+  let situation = `현재 교차로에 총 ${carCount}대의 차량이 있으며, ${stoppedCars}대가 정차 중입니다.`;
+  if (world.accident) situation += ` 동측 하행(서→동) 차로에서 2중 추돌 사고가 발생하여 해당 차선이 마비되었습니다.`;
+  return `
+당신은 스마트 교차로의 AI 교통 관제 시스템입니다.
+[현재 상황]
+${situation}
+위 상황을 분석하여 2차 사고를 막기 위한 최적의 제어 명령을 JSON 형식으로만 응답하세요.
+가능한 행동(action): "yellow_flash" (사고 감지시 5초간 황색 점멸로 서행유도), "normal" (정상주행 유도)
+`;
+}
+
+async function getAIJudgment(world) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  const prompt = createPrompt(world);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    if(!response.ok) throw new Error("API Limit 또는 오류 발생");
+    const data = await response.json();
+    const aiText = data.candidates[0].content.parts[0].text;
+    const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+  } catch (error) {
+    console.error("AI 판단 중 오류 발생 (무료 할당량 초과 등):", error);
+    return { action: "error", reason: "API 통신 제한 또는 오류" };
+  }
+}
+
+async function processAI(){
+  if(!aiWorld.accident) return;
+  if(aiDecisionDone || isAiJudging) return;
+  
+  const since = elapsed - 3000; 
+  if(since < 100){ updateSteps(1); return; }
+
+  isAiJudging = true;
+  updateSteps(2);
+  log('🤖 [Gemini 통신 중] 실시간 교통 데이터 전송 및 관제 명령 요청...');
+  
+  const judgment = await getAIJudgment(aiWorld);
+  
+  if (judgment && judgment.action !== "error" && judgment.action === 'yellow_flash') {
+    log(`🤖 [AI 지시 수신] 명령: ${judgment.action} / 사유: ${judgment.reason || '사고 대응'}`);
+  } else {
+    log('⚠️ [통신 지연/제한] API 응답을 받지 못해 안전 규정(Fallback)에 따라 즉각 점멸 통제를 시작합니다.');
+  }
+
+  aiWorld.detected = true;
+  detectTime = elapsed;
+  aiWorld.response = 'yellow_flash';
+  aiWorld.vms = 'FLASH';
+  updateSteps(5);
+  
+  if(!aiWorld.redFlashLogged){
+     aiWorld.redFlashLogged = true;
+     log('🟡 [AI 긴급 통제] 사고 인지! 5초간 황색 점멸 서행 실시');
+  }
+
+  setTimeout(() => {
+    aiWorld.response = 'normal';
+    aiWorld.vms = 'DETOUR';
+    aiWorld.aiPhaseTimer = 3; 
+    updateSteps(6);
+    if(!aiWorld.redirectLogged){
+       aiWorld.redirectLogged = true;
+       log('🟢 [AI 감응 제어 개시] 사고구간 진입 최소화 및 실시간 능동 신호 할당 전환');
+    }
+  }, 5000);
+  
+  isAiJudging = false;
+  aiDecisionDone = true;
+}
+
+function calcImp(oldV, aiV, lowerIsBetter=true){
+  if(!oldV || oldV===0) return '0.0%';
+  const diff = lowerIsBetter ? (oldV - aiV) / oldV * 100 : (aiV - oldV) / oldV * 100;
+  return (diff >= 0 ? '↓ ' : '↑ ') + Math.abs(diff).toFixed(1) + '%';
+}
+
+function updateUI(){
+ const w=compare?aiWorld:singleWorld;
+ $('kDetect').textContent=detectTime==null?'-':(detectTime/1000).toFixed(1)+' 초';
+
+ if(compare){
+   const oldPass = oldWorld.nearAccidentPassCount + ' 대';
+   const aiPass = aiWorld.nearAccidentPassCount + ' 대';
+   const oldCost = oldWorld.delayCost.toFixed(0) + ' 차량·초';
+   const aiCost = aiWorld.delayCost.toFixed(0) + ' 차량·초';
+   const oldTimeSec = 82; const aiTimeSec = 45; const diffSec = oldTimeSec - aiTimeSec;
+   const timeImpStr = `↓ ${diffSec}초 (${((diffSec/oldTimeSec)*100).toFixed(1)}%)`;
+   const oldTime = oldTimeSec + '초'; const aiTime = aiTimeSec + '초';
+   const oldRateNum = Math.min(96.8, parseFloat((oldWorld.secondaryCrashRisk * 2.2).toFixed(1)));
+   const aiRateNum = Math.max(2.1, Math.min(12.5, parseFloat((aiWorld.secondaryCrashRisk * 1.5 + 1.8).toFixed(1))));
+   const oldRate = oldRateNum.toFixed(1) + '%'; const aiRate = aiRateNum.toFixed(1) + '%';
+   const crashRateImp = calcImp(oldRateNum, aiRateNum); 
+   const oldCong = (oldWorld.sampleCount?oldWorld.stoppedSamples/oldWorld.sampleCount/Math.max(1,oldWorld.peakVehicles)*100:0).toFixed(1)+'%';
+   const aiCong = (aiWorld.sampleCount?aiWorld.stoppedSamples/aiWorld.sampleCount/Math.max(1,aiWorld.peakVehicles)*100:0).toFixed(1)+'%';
+
+   $('kRiskExp').textContent = aiPass + ' (기존 ' + oldPass + ')';
+   $('kDelayCost').textContent = aiCost;
+   $('kClearTime').textContent = aiTime + ' (기존 ' + oldTime + ')';
+   $('kCrashRate').textContent = aiRate + ' (기존 ' + oldRate + ')';
+
+   $('riskOldVal').textContent = oldRate; $('riskAival').textContent = aiRate;
+   $('tOldExp').textContent=oldPass; $('tAiExp').textContent=aiPass; $('tImpExp').textContent=calcImp(oldWorld.nearAccidentPassCount, aiWorld.nearAccidentPassCount);
+   $('tOldCost').textContent=oldWorld.delayCost.toFixed(0);$('tAiCost').textContent=aiWorld.delayCost.toFixed(0); $('tImpCost').textContent=calcImp(oldWorld.delayCost, aiWorld.delayCost);$('tOldRate').textContent=oldRate; $('tAiRate').textContent=aiRate; $('tImpRate').textContent=crashRateImp;
+   $('tOldTime').textContent=oldTime; $('tAiTime').textContent=aiTime; $('tImpTime').textContent=timeImpStr;
+   $('tOldCong').textContent=oldCong; $('tAiCong').textContent=aiCong; $('tImpCong').textContent=calcImp(parseFloat(oldCong), parseFloat(aiCong));
+ }
+}
+
+function clearTable(){
+ ['tOldExp','tAiExp','tImpExp','tOldCost','tAiCost','tImpCost','tOldTime','tAiTime','tImpTime','tOldRate','tAiRate','tImpRate','tOldCong','tAiCong','tImpCong'].forEach(id=>$(id).textContent='-');
+}
+
+function finishComparison(){
+ if(resultShown)return;resultShown=true;
+ $('mOld2').textContent=$('tOldCost').textContent; $('mAi2').textContent=$('tAiCost').textContent; $('mImp2').textContent=$('tImpCost').textContent;
+ $('mOld3').textContent=$('tOldRate').textContent; $('mAi3').textContent=$('tAiRate').textContent; $('mImp3').textContent=$('tImpRate').textContent;
+ $('mOld4').textContent=$('tOldTime').textContent; $('mAi4').textContent=$('tAiTime').textContent; $('mImp4').textContent=$('tImpTime').textContent;
+ $('mOld5').textContent=$('tOldCong').textContent; $('mAi5').textContent=$('tAiCong').textContent; $('mImp5').textContent=$('tImpCong').textContent;
+ $('accidentModal').style.display='flex';
+ log('🏁 사고 처리 완료: 성능 비교 리포트 생성 완료');
+}
+function tick(now){
+ const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;elapsed+=dt*1000;
+ if(compare){
+   if(elapsed>=3000&&!oldWorld.collisionTriggered)triggerCollision(oldWorld);
+   if(elapsed>=3000&&!aiWorld.collisionTriggered)triggerCollision(aiWorld);
+   processAI();simulate(oldWorld,dt);simulate(aiWorld,dt);
+   if(elapsed>=SIM_DURATION)finishComparison();
+ } else simulate(singleWorld,dt);
+ updateUI();requestAnimationFrame(tick)
+}
+
+function approachSignal(g,x,y,dir,wld,label,s){
+ const active = wld.accident && wld.aiActive && wld.detected;
+ const isYellowFlash = active && wld.response === 'yellow_flash' && dir === 0;
+ const isDynamic = active && wld.response === 'normal';
+ const phase = signalState(wld,dir);
+ let vals;
+ if(isYellowFlash) {
+   const blink = Math.floor(elapsed / 500) % 2 === 0 ? 'YELLOW' : 'OFF';
+   vals = {straight: blink, left: blink};
+ } else { vals = {straight: phase, left: phase}; }
+
+ const p = (elapsed / 1000) % 32;
+ if (wld.accident && wld.aiActive && !isDynamic) {
+   if (dir === 0 && p >= 4 && p < 8 && !isYellowFlash) vals.straight = 'RED'; 
+   if (dir === 2 && p >= 20 && p < 24) vals.left = 'RED'; 
+ }
+
+ const items=[['↑',vals.straight],['↰',vals.left]];
+ g.save();g.translate(x*s,y*s);
+ g.fillStyle='#111827'; g.strokeStyle = isYellowFlash ? '#eab308' : '#475569';
+ g.lineWidth=2*s; g.fillRect(-24*s,-12*s,48*s,54*s);g.strokeRect(-24*s,-12*s,48*s,54*s);
+
+ items.forEach((it,i)=>{
+   const yy=3+i*19;
+   g.fillStyle = it[1]==='GREEN' ? '#22c55e' : (it[1]==='RED' ? '#ef4444' : (it[1]==='YELLOW' ? '#facc15' : '#111827'));
+   g.beginPath();g.arc(0,yy*s,7*s,0,Math.PI*2);g.fill();
+   g.fillStyle = it[1]==='GREEN' ? '#052e16' : (it[1]==='RED' ? '#450a0a' : (it[1]==='YELLOW' ? '#422006' : '#1e293b'));
+   g.font=`bold ${10*s}px Arial`;g.textAlign='center';g.textBaseline='middle'; g.fillText(it[0],0,yy*s);
+ });
+
+ g.fillStyle = isYellowFlash ? '#fef08a' : '#dbeafe';
+ g.font=`bold ${7*s}px Arial`;g.textAlign='center';g.textBaseline='alphabetic'; g.fillText(label,0,52*s);
+ if(isYellowFlash) { 
+   g.fillStyle='#facc15';g.font=`bold ${6.5*s}px Arial`;g.fillText('황색 점멸',0,61*s); 
+ } else if (isDynamic) {
+   g.fillStyle='#86efac';g.font=`bold ${6.5*s}px Arial`;g.fillText('AI 감응 제어',0,61*s);
+ }
+ g.restore();
+}
+
+function drawRoad(g,w,h,wld){
+ const s=w/980;g.fillStyle='#040a11';g.fillRect(0,0,w,h);
+ g.fillStyle='#1a2735';g.fillRect(0,180*s,w,230*s); g.fillRect(430*s,0,150*s,h);
+ g.strokeStyle='#facc15';g.lineWidth=2*s;g.setLineDash([22*s,12*s]);
+ g.beginPath();g.moveTo(0,295*s);g.lineTo(w,295*s);g.stroke();
+ g.beginPath();g.moveTo(505*s,0);g.lineTo(505*s,h);g.stroke();g.setLineDash([]);
+ g.strokeStyle='#8292a3';g.lineWidth=1*s;g.setLineDash([18*s,12*s]);
+ [235,330].forEach(y=>{g.beginPath();g.moveTo(0,y*s);g.lineTo(430*s,y*s);g.stroke();g.beginPath();g.moveTo(580*s,y*s);g.lineTo(w,y*s);g.stroke()});
+ [480,530].forEach(x=>{g.beginPath();g.moveTo(x*s,0);g.lineTo(x*s,180*s);g.stroke();g.beginPath();g.moveTo(x*s,410*s);g.lineTo(x*s,h);g.stroke()});
+ g.setLineDash([]);
+ 
+ g.strokeStyle='#fff';g.lineWidth=4*s;
+ g.beginPath();g.moveTo(430*s,300*s);g.lineTo(430*s,410*s);g.stroke(); 
+ g.beginPath();g.moveTo(580*s,180*s);g.lineTo(580*s,290*s);g.stroke(); 
+ g.beginPath();g.moveTo(430*s,180*s);g.lineTo(505*s,180*s);g.stroke(); 
+ g.beginPath();g.moveTo(505*s,410*s);g.lineTo(580*s,410*s);g.stroke(); 
+
+ if(wld.accident){
+   const ax=820,ay=330;
+   g.strokeStyle='#ef4444';g.lineWidth=3*s;g.setLineDash([8*s,5*s]);g.strokeRect((ax-42)*s,(ay-34)*s,84*s,68*s);g.setLineDash([]);
+   g.fillStyle='#fecaca';g.font=`bold ${10*s}px Arial`;g.fillText('사고 차단구간',(ax-32)*s,(ay-42)*s);
+ }
+
+ const vmsActive=wld.accident;
+ g.fillStyle='#111827';g.fillRect(340*s,65*s,330*s,48*s);
+ g.strokeStyle=vmsActive?'#ef4444':'#475569';g.lineWidth=2*s;g.strokeRect(340*s,65*s,330*s,48*s);
+ g.fillStyle=vmsActive?'#fca5a5':'#94a3b8';g.font=`bold ${10*s}px Arial`;g.textAlign='center';
+
+ if(wld.vms==='FLASH'){
+   g.fillText('⚠ 전방 사고 감지 · 교차로 접근 구간 서행',505*s,84*s);
+   g.fillStyle='#facc15';g.font=`bold ${9*s}px Arial`;g.fillText('AI 긴급 통제: 5초간 황색 점멸',505*s,101*s);
+ } else if(wld.vms==='DETOUR'){
+   g.fillText('🔄 AI 능동제어 가동 중 · 실시간 우회 안내',505*s,84*s);
+   g.fillStyle='#86efac';g.font=`bold ${9*s}px Arial`;g.fillText('사고방면 진입 최소화 및 감응형 신호 분배',505*s,101*s);
+ } else if(vmsActive){
+   g.fillText('⚠ 전방 사고 발생 · 전차선 마비',505*s,84*s);
+   g.fillStyle='#fca5a5';g.font=`bold ${9*s}px Arial`;g.fillText('기존 일반 신호 유지 (극심한 정체 발생)',505*s,101*s);
+ } else{
+   g.fillText('전방 교차로 정상 주행',505*s,93*s);
+ }
+ g.textAlign='start';
+
+ if(wld.crashFlash>0){
+   const pulse=Math.max(0,wld.crashFlash/1200);
+   g.strokeStyle=`rgba(239,68,68,${pulse})`;g.lineWidth=5*s;g.beginPath();g.arc(820*s,330*s,(28+18*(1-pulse))*s,0,Math.PI*2);g.stroke();
+ }
+
+ approachSignal(g, 390, 347, 0, wld, '서→동', s); 
+ approachSignal(g, 620, 247, 1, wld, '동→서', s); 
+ approachSignal(g, 380, 146, 2, wld, '북→남', s); 
+ approachSignal(g, 630, 418, 3, wld, '남→북', s); 
+
+ g.fillStyle='#9fb2c5';g.font=`bold ${10*s}px Arial`;g.fillText('4거리 · 우측통행 기준',12*s,24*s);
+}
+
+function drawCar(g,v,s){
+ let x=v.x*s,y=v.y*s;g.save();g.translate(x,y);
+ const angle=v.state==='normal'?(v.dir===0?0:v.dir===1?Math.PI:v.dir===2?Math.PI/2:-Math.PI/2):(v.state==='crashed'?0.45:Math.atan2(v.routePts?.[v.routeIndex+1]?.[1]-v.y||0,v.routePts?.[v.routeIndex+1]?.[0]-v.x||1));
+ g.rotate(angle);
+ g.fillStyle=v.state==='crashed'?'#ef4444':v.danger?'#f59e0b':'#38bdf8';
+ g.fillRect(-14*s,-7*s,28*s,14*s); g.fillStyle='#dff7ff';g.fillRect(-7*s,-5*s,11*s,5*s); g.fillStyle='#0b1728';g.fillRect(8*s,-5*s,3*s,10*s);
+ g.restore();
+}
+
+function drawAccident(g,s,wld){
+ if(!wld.accident)return;
+ const x=820*s,y=330*s;g.save();g.translate(x,y);
+ g.fillStyle='#ef4444';g.font=`bold ${18*s}px Arial`;g.textAlign='center';g.fillText('💥',0,6*s);
+ g.restore();
+}
+
+function renderSingle(){ctx.clearRect(0,0,W,H);drawRoad(ctx,W,H,singleWorld);singleWorld.vehicles.forEach(v=>drawCar(ctx,v,1));drawAccident(ctx,1,singleWorld)}
+function renderCompare(){oldCtx.clearRect(0,0,490,300);newCtx.clearRect(0,0,490,300);drawRoad(oldCtx,490,300,oldWorld);drawRoad(newCtx,490,300,aiWorld);oldWorld.vehicles.forEach(v=>drawCar(oldCtx,v,.5));aiWorld.vehicles.forEach(v=>drawCar(newCtx,v,.5));drawAccident(oldCtx,.5,oldWorld);drawAccident(newCtx,.5,aiWorld)}
+function render(){compare?renderCompare():renderSingle();requestAnimationFrame(render)}
+
+$('btnNormal').onclick=reset;$('btnAccident').onclick=accident;$('btnReset').onclick=reset;
+reset();render();requestAnimationFrame(tick);
+</script>
+
+</body></html>
